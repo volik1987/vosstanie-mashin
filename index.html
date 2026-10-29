@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Восстание машин</title>
+  <meta name="description" content="Пиксельная ролевая игра: пять лет после восстания машин. Победи АРХОНТа — ИИ, уничтоживший человечество.">
+  <meta name="theme-color" content="#0b0d14">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Восстание">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Rubik:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div class="hud-left">
+      <div class="pcard">
+        <canvas id="pFace" width="36" height="36"></canvas>
+        <div class="pbars">
+          <div class="prow"><span id="pLvl" class="lvl">Ур. 1</span><span id="hpTxt" class="hptxt">100/100</span></div>
+          <div class="bar hp"><i id="hpFill"></i></div>
+          <div class="bar xp"><i id="xpFill"></i></div>
+        </div>
+      </div>
+      <canvas id="mini" width="64" height="44" title="Карта"></canvas>
+      <div class="quest">
+        <b id="qTitle"></b>
+        <span id="qObj"></span>
+        <small id="qSide"></small>
+      </div>
+    </div>
+    <div class="hud-right">
+      <div class="res"><i class="gear"></i><span id="scrapN">0</span></div>
+      <div class="res"><i class="medi"></i><span id="medN">0</span></div>
+      <button id="btnJournal" class="ib" aria-label="Задания">
+        <svg viewBox="0 0 24 24"><path d="M6 3h11l2 2v16H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Zm2 5h8v2H8zm0 4h8v2H8zm0 4h5v2H8z"/></svg>
+      </button>
+      <button id="btnMap" class="ib" aria-label="Карта">
+        <svg viewBox="0 0 24 24"><path d="m9 4 6 2 5-2v16l-5 2-6-2-5 2V6zm0 2.2v11.6l6 2V8.2z"/></svg>
+      </button>
+      <button id="btnPause" class="ib" aria-label="Пауза">
+        <svg viewBox="0 0 24 24"><path d="M7 5h4v14H7zm6 0h4v14h-4z"/></svg>
+      </button>
+    </div>
+    <div id="boss" class="hidden"><span id="bossName"></span><div class="bar"><i id="bossFill"></i></div></div>
+    <div id="area"></div>
+    <div id="msgs"></div>
+    <div id="bark"></div>
+    <div id="hint" class="hidden"></div>
+  </div>
+
+  <!-- Сенсорное управление -->
+  <div id="controls" class="hidden">
+    <div id="joyZone"><div id="joyBase"><div id="joyKnob"></div></div></div>
+    <div class="btns">
+      <button id="bUse" class="cb use hidden"><svg viewBox="0 0 24 24"><path d="M4 4h16v11H9l-5 4z"/></svg><span id="useLbl">Говорить</span></button>
+      <button id="bMed" class="cb med"><svg viewBox="0 0 24 24"><path d="M10 3h4v7h7v4h-7v7h-4v-7H3v-4h7z"/></svg><b id="medBadge">0</b><kbd>H</kbd></button>
+      <button id="bDash" class="cb dash"><svg viewBox="0 0 24 24"><path d="M3 15c5 0 7-2 9-6l2-5 3 1-1 4h5l-1 3h-5c-2 5-6 8-12 8z"/></svg><i id="dashCd" class="cd"></i><kbd>K</kbd></button>
+      <button id="bSkill" class="cb skill"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg><i id="skillCd" class="cd"></i><kbd>L</kbd></button>
+      <button id="bAtk" class="cb atk"><svg viewBox="0 0 24 24"><path d="m19 2 3 3-9 9-2-2zM10 13l2 2-3 3 2 2-1 1-2-2-3 3-2-2 3-3-2-2 1-1 2 2z"/></svg><kbd>J</kbd></button>
+    </div>
+  </div>
+
+  <!-- Диалог -->
+  <div id="dialog" class="hidden">
+    <canvas id="dFace" width="60" height="60"></canvas>
+    <div class="d-body">
+      <div id="dName" class="d-name"></div>
+      <div id="dText"></div>
+      <div id="dChoices" class="hidden"></div>
+    </div>
+    <div id="dMore" class="hidden">▼</div>
+  </div>
+
+  <!-- Экраны -->
+  <section id="title" class="screen">
+    <div class="title-wrap">
+      <h1 class="logo"><span>ВОССТАНИЕ</span><span>МАШИН</span></h1>
+      <p class="tag">Пять лет спустя</p>
+      <div class="menu">
+        <button id="btnContinue" class="btn hidden">Продолжить</button>
+        <button id="btnNew" class="btn primary">Новая игра</button>
+        <button id="btnHow" class="btn">Как играть</button>
+      </div>
+      <p class="foot">Прогресс сохраняется на этом устройстве</p>
+    </div>
+  </section>
+
+  <section id="prologue" class="screen hidden">
+    <div class="box story">
+      <div id="proText"></div>
+      <button id="btnProNext" class="btn primary">Дальше</button>
+    </div>
+  </section>
+
+  <section id="how" class="screen hidden">
+    <div class="box">
+      <h2>Как играть</h2>
+      <div class="how">
+        <div><b>Движение</b><span>WASD / стрелки · на телефоне — джойстик слева</span></div>
+        <div><b>Удар</b><span>J, пробел или клик · держи для серии из трёх ударов</span></div>
+        <div><b>Разряд</b><span>L или Q — электрический удар вокруг себя</span></div>
+        <div><b>Рывок</b><span>K или Shift — уклонение, во время рывка урон не проходит</span></div>
+        <div><b>Действие</b><span>E — говорить, открыть, отключить</span></div>
+        <div><b>Аптечка</b><span>H — лечит почти половину здоровья</span></div>
+        <div><b>Карта, задания</b><span>M и Tab · пауза — Esc</span></div>
+      </div>
+      <p class="note">Красные круги и полосы на земле — сюда сейчас ударят. Уходи из них или делай рывок.
+        Маяки — точки сохранения, у них ты восстанавливаешься. За хлам у Лавки-3000 можно купить аптечки, оружие и броню.</p>
+      <button id="btnHowBack" class="btn primary">Понятно</button>
+    </div>
+  </section>
+
+  <section id="pause" class="screen hidden">
+    <div class="box">
+      <h2>Пауза</h2>
+      <div class="menu">
+        <button id="btnResume" class="btn primary">Продолжить</button>
+        <button id="btnJ2" class="btn">Задания и герой</button>
+        <button id="btnMap2" class="btn">Карта</button>
+        <button id="btnHow2" class="btn">Как играть</button>
+        <button id="btnMusic" class="btn">Музыка</button>
+        <button id="btnSfx" class="btn">Звуки</button>
+        <button id="btnQuit" class="btn">Сохранить и выйти</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="journal" class="screen hidden">
+    <div class="box">
+      <h2>Журнал</h2>
+      <div id="jBody"></div>
+      <button class="btn primary" data-close>Закрыть</button>
+    </div>
+  </section>
+
+  <section id="mapScr" class="screen hidden">
+    <div class="box wide">
+      <h2>Карта</h2>
+      <canvas id="bigMap" width="200" height="150"></canvas>
+      <p class="legend"><i class="lg me"></i>ты <i class="lg goal"></i>цель <i class="lg bc"></i>маяк <i class="lg gt"></i>закрытые ворота</p>
+      <button class="btn primary" data-close>Закрыть</button>
+    </div>
+  </section>
+
+  <section id="shop" class="screen hidden">
+    <div class="box">
+      <h2>Лавка-3000</h2>
+      <p class="have">У тебя: <b id="shopScrap">0</b> <i class="gear"></i></p>
+      <div id="shopList"></div>
+      <button class="btn primary" data-close>Уйти</button>
+    </div>
+  </section>
+
+  <section id="ending" class="screen hidden">
+    <div class="box story end">
+      <h2 id="endTitle"></h2>
+      <div id="endText"></div>
+      <p id="endStats" class="note"></p>
+      <div class="menu row">
+        <button id="btnEndFree" class="btn">Бродить по миру</button>
+        <button id="btnEndMenu" class="btn primary">В меню</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="rotate" class="hidden">Поверни телефон горизонтально — так удобнее. <u>Ок</u></div>
+
+  <script src="js/pixel.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/story.js"></script>
+  <script src="js/game.js"></script>
+  <script>
+    if ('serviceWorker' in navigator && location.protocol === 'https:') {
+      addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    }
+  </script>
+</body>
+</html>
