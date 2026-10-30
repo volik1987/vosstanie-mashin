@@ -183,7 +183,7 @@ function buildMap(def) {
   const items = far(6, 9, chests);
   const terms = far(3, 14, [...chests, ...items]);
   const hide = far(4, 10, [...chests, ...items, ...terms]);
-  const mons = far(2, 20, [...chests, ...items, ...terms, ...hide]);
+  const mons = far(3, 18, [...chests, ...items, ...terms, ...hide]);
   const npcs = [[hub[0] + 3, hub[1] + 1], [hub[0] - 4, hub[1] + 2], [hub[0] + 1, hub[1] + 4], [hub[0] - 2, hub[1] - 3]];
   const house = def.house ? [hub[0] - 10, hub[1] - 6] : null;
 

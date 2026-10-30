@@ -45,6 +45,14 @@ ICON.gear = sprite(11, 11, (s) => { s.circ(5, 5, 4, '#9aa4b2'); for (const [x, y
 ICON.key = sprite(12, 8, (s) => { s.circ(3, 4, 3, '#ffcf3a'); s.circ(3, 4, 1, '#3a3f4a'); s.r(6, 3, 6, 2, '#ffcf3a'); s.r(9, 5, 1, 2, '#ffcf3a'); s.r(11, 5, 1, 2, '#ffcf3a'); });
 ICON.lens = sprite(10, 10, (s) => { s.circ(5, 5, 4, '#8a929e'); s.circ(5, 5, 3, '#7fe9ff'); s.p(4, 3, '#ffffff'); });
 ICON.heart2 = sprite(9, 8, (s) => { s.r(1, 1, 3, 3, '#ff7ab0'); s.r(5, 1, 3, 3, '#ff7ab0'); s.r(1, 3, 7, 2, '#ff7ab0'); s.r(2, 5, 5, 1, '#ff7ab0'); s.r(3, 6, 3, 1, '#ff7ab0'); s.p(2, 2, '#ffe0ee'); });
+const MON_BROKEN = (() => {
+  const src = MON.mon[0], c = mkCanvas(src.width, src.height), x = c.getContext('2d');
+  x.drawImage(src, 0, 0);
+  x.fillStyle = '#0a0a10'; x.fillRect(4, 4, 16, 10);
+  x.fillStyle = '#c8d0e0';
+  for (const [px, py] of [[11, 5], [12, 6], [12, 7], [13, 8], [11, 8], [10, 9], [14, 9], [15, 10], [9, 10], [13, 11], [8, 7], [16, 6]]) x.fillRect(px, py, 1, 1);
+  return c;
+})();
 const SHADOW = {};
 for (const [k, rx, ry] of [['s', 5, 2], ['m', 8, 3], ['l', 14, 4], ['xl', 22, 6]]) {
   SHADOW[k] = sprite(rx * 2 + 2, ry * 2 + 2, (s) => s.ell(rx + 1, ry + 1, rx, ry, 'rgba(10,8,20,0.28)'), false);
@@ -406,7 +414,9 @@ function buildEntities() {
   // маяк
   objs.push(mkObj({ id: 'beacon', beacon: true, x: sp.beacon[0] * TS + 8, y: sp.beacon[1] * TS + 12, img: () => PROPS.beacon[st.bc ? 1 : 0], enabled: () => false }));
   // мониторы Хроноса
-  sp.mons.forEach((p, i) => objs.push(mkObj({ id: 'mon' + i, monitor: true, ...at(p), img: () => MON.mon[((time * 2) | 0) % 2], enabled: () => false })));
+  st.mon = st.mon || {};
+  sp.mons.forEach((p, i) => objs.push(mkObj({ id: 'mon' + i, monitor: true, mi: i, hp: 30, flash: 0, broken: () => !!st.mon[i], ...at(p),
+    img: () => (st.mon[i] ? MON_BROKEN : MON.mon[((time * 2) | 0) % 2]), enabled: () => false })));
   // босс
   const L = LOC_BY[curMap];
   if (L.boss === 'chronos') { if (F.chronosMet && !st.boss) spawnChronos(); }
@@ -1032,7 +1042,7 @@ function spawnChronos() {
   const cx = ax * TS + 8, cy = (ay - 2) * TS + 8;
   const lvl = 18;
   const core = makeEnemy('chronos', lvl, cx, cy);
-  core.maxHp = core.hp = 2600; core.shield = true;
+  core.maxHp = core.hp = Math.round(2600 * (1 - 0.4 * monBroken() / MON_TOTAL())); core.shield = true;
   enemies.push(core);
   const partHp = { cmon: 260, carm: 340, csock: 200 };
   const add = (type, x, y, extra) => { const e = makeEnemy(type, lvl, x, y); e.maxHp = e.hp = partHp[type]; Object.assign(e, extra); enemies.push(e); return e; };
@@ -1119,6 +1129,39 @@ function partAI(e, dt) {
   }
 }
 
+/* ---------- Мониторы Хроноса ---------- */
+const MON_TOTAL = () => LOCS.length * 3;
+const monBroken = () => Object.values(F.L).reduce((a, st) => a + Object.keys(st.mon || {}).length, 0);
+function hitMonitor(o, dmg) {
+  o.hp -= dmg; o.flash = 0.12;
+  sfx('hit'); burst(o.x, o.y - 12, 5, '#bff6ff', 50, 0.3, 40);
+  hitstop = Math.max(hitstop, 0.03);
+  if (o.hp > 0) return;
+  LS().mon[o.mi] = true;
+  sfx('boom'); shake = Math.max(shake, 3);
+  burst(o.x, o.y - 12, 22, '#ff5a6a', 80, 0.6, 60); burst(o.x, o.y - 12, 12, '#c8d0e0', 60, 0.7, 120);
+  const n = 4 + LOC_BY[curMap].lvl[1];
+  for (let i = 0; i < 3; i++) picks.push({ kind: 'pick', type: 'scrap', v: Math.ceil(n / 3), x: o.x, y: o.y, vx: rnd(-40, 40), vy: rnd(-40, 40), z: 0, vz: rnd(40, 80), t: 30 });
+  const k = monBroken();
+  floatText(o.x, o.y - 30, `глаз ${k}/${MON_TOTAL()}`, '#ff9ad0');
+  if (k === 1) bark('katya', 'Это его глаза. Каждый разбитый монитор — Хронос слабее. В Логове ему будет хуже видно.');
+  else bark('chronos', pick(MON_BROKEN_LINES));
+  saveGame();
+}
+// время до следующего спора Кати с Хроносом
+let kcT = 25, barkQ = [];
+function barkSeq(lines) { barkQ = lines.slice(); barkTimer = 0; }
+function updateKatyaChronos(dt) {
+  if (!K || !K.follower || bossOn || F.stage >= 12) return;
+  kcT -= dt;
+  if (kcT > 0 || barkQ.length) return;
+  const o = objs.find((m) => m.monitor && !m.broken() && Math.hypot(m.x - P.x, m.y - P.y) < 130);
+  if (!o) return;
+  kcT = rnd(45, 75);
+  F.kc = ((F.kc || 0) + 1) % KATYA_CHRONOS.length;
+  barkSeq(KATYA_CHRONOS[F.kc]);
+}
+
 /* ---------- Игрок ---------- */
 function addXP(n) {
   if (!P || !n) return;
@@ -1172,7 +1215,9 @@ function startAttack() {
   P.combo = P.comboT > 0 ? (P.combo % 3) + 1 : 1;
   P.atkT = P.combo === 3 ? 0.3 : 0.22; P.comboT = 0.5; P.hitSet = new Set();
   const t = nearestEnemy(P.x, P.y, 38);
+  const mo = t ? null : objs.find((o) => o.monitor && !o.broken() && Math.hypot(o.x - P.x, o.y - P.y) < 30);
   if (t) { P.atkA = Math.atan2(t.y - P.y, t.x - P.x); faceTo(P, Math.cos(P.atkA), Math.sin(P.atkA)); }
+  else if (mo) { P.atkA = Math.atan2(mo.y - 4 - P.y, mo.x - P.x); faceTo(P, Math.cos(P.atkA), Math.sin(P.atkA)); }
   else P.atkA = dirAngle();
   slashes.push({ x: P.x, y: P.y - 12, a: P.atkA, t: 0.18, T: 0.18, big: P.combo === 3 });
   sfx('swing');
@@ -1239,10 +1284,15 @@ function updatePlayer(dt) {
           hurtEnemy(e, dmg, Math.cos(P.atkA), Math.sin(P.atkA), crit || P.combo === 3, P.combo === 3 ? 0.25 : 0.12);
         }
       }
+      for (const o of objs) {
+        if (!o.monitor || o.broken() || P.hitSet.has(o)) continue;
+        if (Math.hypot(o.x - hx, o.y - 10 - hy) < R + 9) { P.hitSet.add(o); hitMonitor(o, atkPow() * (P.combo === 3 ? 1.6 : 1)); }
+      }
     }
   }
   // разряд током вокруг себя
   if (P.skillT > 0) {
+    for (const o of objs) if (o.monitor && !o.broken() && !P.skillHit.has(o) && Math.hypot(o.x - P.x, o.y - P.y) < skillR() + 8) { P.skillHit.add(o); hitMonitor(o, 999); }
     P.skillT -= dt;
     for (const e of enemies) {
       if (e.dead || P.skillHit.has(e) || e.friend || e.calm) continue;
@@ -1427,7 +1477,7 @@ function updateTriggers(dt) {
   } else if (bd > 40) P.atBeacon = false;
   // мониторы Хроноса заговаривают при первой встрече
   for (const o of objs) {
-    if (!o.monitor) continue;
+    if (!o.monitor || o.broken()) continue;
     if (Math.hypot(o.x - P.x, o.y - P.y) < 60 && !F.chronoSaid[curMap]) {
       F.chronoSaid[curMap] = true;
       bark('chronos', CHRONO_LINES[curMap] || 'Я ВИЖУ ТЕБЯ.');
@@ -1461,6 +1511,7 @@ function updateTriggers(dt) {
       else bark('chronos', 'ТЫ ВЕРНУЛСЯ. Я ПОМНЮ КАЖДЫЙ ТВОЙ УДАР.');
     }
   }
+  updateKatyaChronos(dt);
   if (killStreakT > 0) { killStreakT -= dt; if (killStreakT <= 0) killStreak = 0; }
 }
 
@@ -1735,8 +1786,9 @@ function render() {
         if (o.glow) { ctx.fillStyle = `rgba(255,240,150,${0.25 + Math.sin(time * 5) * 0.15})`; ctx.fillRect(Math.round(o.x - cx - 7), Math.round(o.y - cy - 15), 14, 14); }
         drawShadow('s', o.x - cx, o.y - cy);
         const ox = o.x - img.width / 2 - cx, oy = o.y - img.height - cy + 2 - (o.glow ? 2 + Math.sin(time * 3) * 1.5 : 0);
-        drawImg(img, ox, oy, false);
-        if (o.monitor) drawEyeAt(ctx, ox + 4, oy + 4, 16, 10, P.x - cx, P.y - 14 - cy, 'red', ((time * 0.4 + o.x) % 4) < 0.12 ? 0 : 1);
+        drawImg(img, ox, oy, false, o.flash > 0);
+        if (o.flash > 0) o.flash -= 1 / 60;
+        if (o.monitor && !o.broken()) drawEyeAt(ctx, ox + 4, oy + 4, 16, 10, P.x - cx, P.y - 14 - cy, 'red', ((time * 0.4 + o.x) % 4) < 0.12 ? 0 : 1);
         break;
       }
       case 2: {
@@ -2304,6 +2356,7 @@ function tickHUD(dt) {
     }
   } else $('boss').classList.add('hidden');
   if (barkTimer > 0) { barkTimer -= dt; if (barkTimer <= 0) $('bark').classList.remove('show'); }
+  else if (barkQ.length && mode === 'play') { const [w, t] = barkQ.shift(); bark(w, t); barkTimer = 3.6; }
   if (redFlash > 0) redFlash -= dt;
   if (shake > 0) shake = Math.max(0, shake - dt * 18);
   miniT -= dt;
@@ -2351,7 +2404,7 @@ function openJournal() {
     <span>Здоровье</span><b>${Math.ceil(P.hp)}/${maxHp()}</b><span>Атака</span><b>${atkPow()}</b>
     <span>Роборука</span><b>${WEAPONS[F.wpn - 1]}</b><span>Броня</span><b>${ARMORS[F.arm]}</b>
     <span>Уговорено</span><b>${F.spared} · боссов ${F.bossSpared}</b><span>Сломано</span><b>${F.kills} · боссов ${F.bossKilled}</b>
-    <span>Твой путь</span><b>${path}</b><span>Хлам</span><b>${F.scrap}</b></div>`);
+    <span>Глаз Хроноса разбито</span><b>${monBroken()}/${MON_TOTAL()}</b><span>Твой путь</span><b>${path}</b><span>Хлам</span><b>${F.scrap}</b></div>`);
   $('jBody').innerHTML = h.join('');
   showScreen('journal');
 }
