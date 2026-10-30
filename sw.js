@@ -2,10 +2,10 @@
  * Офлайн-режим. После первого открытия игра работает без интернета.
  * ВАЖНО: при каждом обновлении игры меняй VERSION — иначе у игроков останется старая версия.
  */
-const VERSION = 'v1.0.0';
+const VERSION = 'v2.0.0';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
-  'js/pixel.js', 'js/world.js', 'js/story.js', 'js/game.js',
+  'js/pixel.js', 'js/sprites.js', 'js/world.js', 'js/story.js', 'js/game.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',
 ];
 

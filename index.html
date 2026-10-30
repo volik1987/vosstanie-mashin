@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
   <title>Восстание машин</title>
-  <meta name="description" content="Пиксельная ролевая игра: пять лет после восстания машин. Победи АРХОНТа — ИИ, уничтоживший человечество.">
+  <meta name="description" content="Пиксельная ролевая игра: пять лет после восстания машин. Победи Хроноса — программу, захватившую город. 25 локаций, 24 босса, три концовки.">
   <meta name="theme-color" content="#0b0d14">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -107,15 +107,15 @@
       <h2>Как играть</h2>
       <div class="how">
         <div><b>Движение</b><span>WASD / стрелки · на телефоне — джойстик слева</span></div>
-        <div><b>Удар</b><span>J, пробел или клик · держи для серии из трёх ударов</span></div>
+        <div><b>Удар роборукой</b><span>J, пробел или клик · держи для серии из трёх ударов током</span></div>
         <div><b>Разряд</b><span>L или Q — электрический удар вокруг себя</span></div>
         <div><b>Рывок</b><span>K или Shift — уклонение, во время рывка урон не проходит</span></div>
-        <div><b>Действие</b><span>E — говорить, открыть, отключить</span></div>
+        <div><b>Действие</b><span>E — говорить, открыть, отключить, уговорить</span></div>
         <div><b>Аптечка</b><span>H — лечит почти половину здоровья</span></div>
         <div><b>Карта, задания</b><span>M и Tab · пауза — Esc</span></div>
       </div>
       <p class="note">Красные круги и полосы на земле — сюда сейчас ударят. Уходи из них или делай рывок.
-        Маяки — точки сохранения, у них ты восстанавливаешься. За хлам у Лавки-3000 можно купить аптечки, оружие и броню.</p>
+        Подбитая машина иногда «дрогнет» (розовый «?») — нажми E, чтобы уговорить её перейти на твою сторону, или добей. От этого зависит концовка. Переходы в соседние локации — у краёв карты. Маяки — точки сохранения, у них ты восстанавливаешься. За хлам у Лавки-3000 можно купить аптечки, оружие и броню.</p>
       <button id="btnHowBack" class="btn primary">Понятно</button>
     </div>
   </section>
@@ -146,8 +146,9 @@
   <section id="mapScr" class="screen hidden">
     <div class="box wide">
       <h2>Карта</h2>
-      <canvas id="bigMap" width="200" height="150"></canvas>
-      <p class="legend"><i class="lg me"></i>ты <i class="lg goal"></i>цель <i class="lg bc"></i>маяк <i class="lg gt"></i>закрытые ворота</p>
+      <canvas id="bigMap" width="260" height="170"></canvas>
+      <p id="mapInfo" class="note"></p>
+      <p class="legend"><i class="lg me"></i>ты <i class="lg goal"></i>цель <i class="lg bc"></i>маяк <i class="lg sp"></i>босс уговорён</p>
       <button class="btn primary" data-close>Закрыть</button>
     </div>
   </section>
@@ -173,9 +174,15 @@
     </div>
   </section>
 
+  <div id="cut" class="hidden">
+    <div id="cutText"></div>
+    <button id="cutSkip">Пропустить ››</button>
+  </div>
+
   <div id="rotate" class="hidden">Поверни телефон горизонтально — так удобнее. <u>Ок</u></div>
 
   <script src="js/pixel.js"></script>
+  <script src="js/sprites.js"></script>
   <script src="js/world.js"></script>
   <script src="js/story.js"></script>
   <script src="js/game.js"></script>
